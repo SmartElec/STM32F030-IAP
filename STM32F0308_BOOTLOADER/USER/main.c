@@ -102,6 +102,11 @@ int main(void)
 							machine_state=1;
 							successful=0;
 							FLASH_SAVEADDR=FLASH_APP1_ADDR;
+							if(SUCCESSFUL_FLAG==0xa5a5)//准备擦除APP可运行标志
+							{
+								u16 temp_addr=0xffff;
+								STMFLASH_Write(APP1_SUCCESS_ADDR,&temp_addr,1);
+							}
 							ifs_stmr_start(statemachine_handle);
 							ifs_stmr_stop(IAP_handle);
 							uart_putc(0x06);
@@ -183,16 +188,10 @@ void Run_App(void *arg)
 {
 	char* success_flag=(char*)arg;
 	
-	if(*success_flag)//更新完程序之后运行会擦除标志位进入app
+	if(*success_flag)
 	{
 		if(((*(vu32*)(FLASH_APP1_ADDR+4))&0xFF000000)==0x08000000)//判断是否为0X08XXXXXX.
 		{
-			
-			if(SUCCESSFUL_FLAG==0xa5a5)//准备擦除APP可运行标志
-			{
-				u16 temp_addr=0xffff;
-				STMFLASH_Write(APP1_SUCCESS_ADDR,&temp_addr,1);
-			}
 			iap_load_app(FLASH_APP1_ADDR);//执行FLASH APP代码
 		}
 	}
