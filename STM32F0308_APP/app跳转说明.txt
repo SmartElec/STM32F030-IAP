@@ -1,3 +1,8 @@
 示例：
 1.按照bootloader升级app的协议再发送一次请求，即可确认app运行成功，并写入相应的标志位A5A5
-2.发送aabbee系统复位，回到bootloader，等待升级，2秒内无请求，继续运行app
+2.发送aabbee系统复位，回到bootloader，等待升级，2秒内无请求，继续运行app.
+
+提示:再编写app程序时，直接调用bootloader中的iap跳转设置函数和写标志函数，不用再重复写相同的函数功能。
+typedef void (*FunType)(void);
+FunType Fun_IAPSet= (void(*)())0x8001001;
+(*Fun_IAPSet)();//调用bootloader中的IAPSet()函数

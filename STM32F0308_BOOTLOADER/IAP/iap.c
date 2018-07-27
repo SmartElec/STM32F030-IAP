@@ -9,7 +9,7 @@ u16 iapbuf[1024];
 //appxaddr:应用程序的起始地址
 //appbuf:应用程序CODE.
 //appsize:应用程序大小(字节).
-void iap_write_appbin(u32 appxaddr,u8 *appbuf,u32 appsize)
+u16 iap_write_appbin(u32 appxaddr,u8 *appbuf,u32 appsize)
 {
 	u16 t;
 	u16 i=0;
@@ -25,11 +25,22 @@ void iap_write_appbin(u32 appxaddr,u8 *appbuf,u32 appsize)
 		if(i==1024)
 		{
 			i=0;
-			STMFLASH_Write(fwaddr,iapbuf,1024);	
+			if(STMFLASH_Write(fwaddr,iapbuf,1024))//出错
+			{
+				return 1;
+			}
 			fwaddr+=2048;//偏移2048  16=2*8.所以要乘以2.
 		}
 	}
-	if(i)STMFLASH_Write(fwaddr,iapbuf,i);//将最后的一些内容字节写进去.  
+	if(i)
+	{
+		if(STMFLASH_Write(fwaddr,iapbuf,i))//将最后的一些内容字节写进去. 
+		{
+			return 1;
+		}
+			
+	}
+	return 0;	
 }
 
 int iap_read_appbin(u32 appxaddr,u8 *appbuf,u32 appsize)
@@ -80,7 +91,7 @@ void iap_load_app(u32 appxaddr)
 		__set_MSP(*(vu32*)appxaddr);					//初始化APP堆栈指针(用户代码区的第一个字用于存放栈顶地址)
 		jump2app();									//跳转到APP.
 	}
-}		 
+}
 void IAP_Set(void)
 {
    uint32_t i = 0;
@@ -101,7 +112,14 @@ void IAP_Set(void)
 
 }
 
-
+void Write_SuccessFlag(void)
+{
+	u16 successflag=0xa5a5;
+   if((*(vu16*)APP1_SUCCESS_ADDR)!=successflag)
+   {
+		STMFLASH_Write(APP1_SUCCESS_ADDR,&successflag,1);
+   }
+}
 
 
 

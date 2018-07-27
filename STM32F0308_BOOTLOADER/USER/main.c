@@ -13,7 +13,6 @@
 #define BOOT_Version  	0x0220
 #define FLASH_ROM   	64
 #define FILE_SIZE_A  	*(vu32*)APP1_SIZE_ADDR//用于存放app的大小
-#define SUCCESSFUL_FLAG	*(vu16*)APP1_SUCCESS_ADDR//用于存放app的大小
 #define SPLIT_PACK 		256
 
 #define SUPPORT_SENDFILE 0
@@ -38,7 +37,6 @@ void Run_App(void *arg);
 void state_timeout(void *arg);
 int Wait_Ack(u8 ack_ch);
 
-
 int main(void)
 {
 	u8 count=0;	
@@ -54,8 +52,8 @@ int main(void)
 //超时是否进入APP
 	IAP_handle=ifs_stmr_registered(2000,Run_App,&successful,IFS_STMR_FLAG_ONESHOT);
 	ifs_stmr_start(IAP_handle);
-	
-	printf("-Bootloader-总空间:%ld Byte",FLASH_ROM*1024ul);
+
+	printf("-Bootloader-总空间:%ld Byte ",FLASH_ROM*1024ul);
 	uart_putu16(0xffff);
 	while(1)
 	{
@@ -102,10 +100,11 @@ int main(void)
 							machine_state=1;
 							successful=0;
 							FLASH_SAVEADDR=FLASH_APP1_ADDR;
-							if(SUCCESSFUL_FLAG==0xa5a5)//准备擦除APP可运行标志
+							if(OptionByte_Read()==0xa5a5)//准备擦除APP可运行标志
 							{
-								u16 temp_addr=0xffff;
-								STMFLASH_Write(APP1_SUCCESS_ADDR,&temp_addr,1);
+								//u16 temp_addr=0xffff;
+								//STMFLASH_Write(APP1_SUCCESS_ADDR,&temp_addr,1);
+								OptionByte_Write(0xffff);
 							}
 							ifs_stmr_start(statemachine_handle);
 							ifs_stmr_stop(IAP_handle);
@@ -143,7 +142,14 @@ int main(void)
 							packets_now++;
 							uart_putc(0x06);
 							//存储数据 添加自己的代码
-							iap_write_appbin(FLASH_SAVEADDR,&uart_recv.recv_buf[0]+2,packet_size);
+							if(iap_write_appbin(FLASH_SAVEADDR,&uart_recv.recv_buf[0]+2,packet_size))
+							{
+								uart_putu16(0xffff);
+								machine_state=0;
+								delay_ms(1000);
+								printf("\r\nflash写错误，可能是由于写保护");
+								break;
+							}
 							FLASH_SAVEADDR+=(packet_size);
 							//
 							if(packets_now==packets_all)//USART_RX_BUF[0]<<8|USART_RX_BUF[1]
@@ -179,7 +185,6 @@ int main(void)
 			}
 			USART_Restart();
 		}
-
 		count++;
 		ifs_stmr_task();
 	}
@@ -197,15 +202,21 @@ void Run_App(void *arg)
 	}
 	else//超时运行
 	{
-		if(SUCCESSFUL_FLAG==0xa5a5)//APP可运行标志
+		u16 OptionBytes=0;
+		OptionBytes=OptionByte_Read();
+		if(/*SUCCESSFUL_FLAG*/OptionBytes==0xa5a5)//APP可运行标志
 		{
 			if(((*(vu32*)(FLASH_APP1_ADDR+4))&0xFF000000)==0x08000000)//判断是否为0X08XXXXXX.
 			{
 				iap_load_app(FLASH_APP1_ADDR);//执行FLASH APP代码
 			}
+			printf("\r\n运行错误,可能没有完整的APP");
 		}
+		else
+			printf("\r\n运行错误,可能没有完整的APP(0x%04x)",OptionBytes);
 	}
 	uart_putc(0x0e);
+	
 }
 void state_timeout(void *arg)
 {

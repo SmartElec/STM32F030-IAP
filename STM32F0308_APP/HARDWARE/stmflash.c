@@ -12,14 +12,18 @@ u16 STMFLASH_ReadHalfWord(u32 faddr)
 //WriteAddr:起始地址
 //pBuffer:数据指针
 //NumToWrite:半字(16位)数   
-void STMFLASH_Write_NoCheck(u32 WriteAddr,u16 *pBuffer,u16 NumToWrite)   
+u16 STMFLASH_Write_NoCheck(u32 WriteAddr,u16 *pBuffer,u16 NumToWrite)   
 { 			 		 
 	u16 i;
 	for(i=0;i<NumToWrite;i++)
 	{
-		FLASH_ProgramHalfWord(WriteAddr,pBuffer[i]);
+		if(FLASH_COMPLETE!=FLASH_ProgramHalfWord(WriteAddr,pBuffer[i]))
+		{
+			return 1;
+		}
 	    WriteAddr+=2;//地址增加2.
 	}  
+	return 0;
 } 
 //从指定地址开始写入指定长度的数据
 //WriteAddr:起始地址(此地址必须为2的倍数!!)
@@ -31,14 +35,15 @@ void STMFLASH_Write_NoCheck(u32 WriteAddr,u16 *pBuffer,u16 NumToWrite)
 #define STM_SECTOR_SIZE	2048
 #endif		 
 u16 STMFLASH_BUF[STM_SECTOR_SIZE/2];//最多是2K字节
-void STMFLASH_Write(u32 WriteAddr,u16 *pBuffer,u16 NumToWrite)	
+
+u16 STMFLASH_Write(u32 WriteAddr,u16 *pBuffer,u16 NumToWrite)	
 {
 	u32 secpos;	   //扇区地址
 	u16 secoff;	   //扇区内偏移地址(16位字计算)
-	u16 secremain; //扇区内剩余地址(16位字计算)	   
+	u16 secremain; //扇区内剩余地址(16位字计算)
  	u16 i;    
 	u32 offaddr;   //去掉0X08000000后的地址
-	if(WriteAddr<STM32_FLASH_BASE||(WriteAddr>=(STM32_FLASH_BASE+1024*STM32_FLASH_SIZE)))return;//非法地址
+	if(WriteAddr<STM32_FLASH_BASE||(WriteAddr>=(STM32_FLASH_BASE+1024*STM32_FLASH_SIZE)))return 1;//非法地址
 	FLASH_Unlock();						//解锁
 	offaddr=WriteAddr-STM32_FLASH_BASE;		//实际偏移地址.
 	secpos=offaddr/STM_SECTOR_SIZE;			//扇区地址  0~127 for STM32F103RBT6
@@ -46,7 +51,7 @@ void STMFLASH_Write(u32 WriteAddr,u16 *pBuffer,u16 NumToWrite)
 	secremain=STM_SECTOR_SIZE/2-secoff;		//扇区剩余空间大小   
 	if(NumToWrite<=secremain)secremain=NumToWrite;//不大于该扇区范围
 	while(1) 
-	{	
+	{
 		STMFLASH_Read(secpos*STM_SECTOR_SIZE+STM32_FLASH_BASE,STMFLASH_BUF,STM_SECTOR_SIZE/2);//读出整个扇区的内容
 		for(i=0;i<secremain;i++)//校验数据
 		{
@@ -54,13 +59,30 @@ void STMFLASH_Write(u32 WriteAddr,u16 *pBuffer,u16 NumToWrite)
 		}
 		if(i<secremain)//需要擦除
 		{
-			FLASH_ErasePage(secpos*STM_SECTOR_SIZE+STM32_FLASH_BASE);//擦除这个扇区
+			if(FLASH_COMPLETE!=FLASH_ErasePage(secpos*STM_SECTOR_SIZE+STM32_FLASH_BASE))//擦除这个扇区
+			{
+				FLASH_Lock();//上锁
+				return 1;
+			}
 			for(i=0;i<secremain;i++)//复制
 			{
 				STMFLASH_BUF[i+secoff]=pBuffer[i];
 			}
-			STMFLASH_Write_NoCheck(secpos*STM_SECTOR_SIZE+STM32_FLASH_BASE,STMFLASH_BUF,STM_SECTOR_SIZE/2);//写入整个扇区  
-		}else STMFLASH_Write_NoCheck(WriteAddr,pBuffer,secremain);//写已经擦除了的,直接写入扇区剩余区间. 				   
+			
+			if(FLASH_COMPLETE!=STMFLASH_Write_NoCheck(secpos*STM_SECTOR_SIZE+STM32_FLASH_BASE,STMFLASH_BUF,STM_SECTOR_SIZE/2))//写入整个扇区  
+			{
+				FLASH_Lock();//上锁
+				return 1;
+			}
+		}else 
+		{
+			if(FLASH_COMPLETE!=STMFLASH_Write_NoCheck(WriteAddr,pBuffer,secremain))//写已经擦除了的,直接写入扇区剩余区间. 		
+			{
+				FLASH_Lock();//上锁
+				return 1;
+			}
+		}
+				   
 		if(NumToWrite==secremain)break;//写入结束了
 		else//写入未结束
 		{
@@ -74,6 +96,7 @@ void STMFLASH_Write(u32 WriteAddr,u16 *pBuffer,u16 NumToWrite)
 		}	 
 	};	
 	FLASH_Lock();//上锁
+	return 0;
 }
 #endif
 
@@ -99,8 +122,33 @@ void Test_Write(u32 WriteAddr,u16 WriteData)
 	STMFLASH_Write(WriteAddr,&WriteData,1);//写入一个字 
 }
 
-
-
+//用户选项字节
+//u16  OptionByte;
+u16 OptionByte_Read(void)      //两个8字节合成1个16字节使用
+{
+	u8 high=(*(vu16*)(0x1FFFF804))&0x00ff;//读0x1FFFF804
+	u8 low =(*(vu16*)(0x1FFFF806))&0x00ff;//读0x1FFFF806
+	return (   (high<<8)+low  );
+}
+void OptionByte_Write(u16 data)//两个8字节合成1个16字节使用
+{
+	u16  OptionByte;
+	OptionByte=OptionByte_Read();
+	if(OptionByte==data)
+		return;
+	FLASH_Unlock();//解锁
+	FLASH_OB_Unlock();
+	if(OptionByte!=0xffff)
+		FLASH_EraseOptionBytes();//flash为ff时候才能写入，所以先擦除，网上很多不成功就是没擦除
+	if(data!=0xffff)
+	{
+		FLASH_ProgramOptionByteData(0x1FFFF804,data>>8);    //写0x1FFFF804
+		FLASH_ProgramOptionByteData(0x1FFFF806,data&0x00ff);//写0x1FFFF806
+	}
+	FLASH_OB_Lock();
+	FLASH_Lock();  //上锁
+	
+}
 
 
 

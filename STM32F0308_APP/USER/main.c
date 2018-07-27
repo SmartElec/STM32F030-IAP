@@ -5,10 +5,10 @@
 #include "string.h"
 #include "stdlib.h"
 #include "stdio.h"
-#include "iap.h"
+//#include "iap.h"
 #include "crc8_16.h"
 #include "softtimer.h"
-#include "stmflash.h"
+//#include "stmflash.h"
 /****************************************************************************************************/
 #define BOOT_Version  	0x0220
 #define FLASH_ROM   	64
@@ -23,7 +23,6 @@ u32 file_size=0;
 u32 packet_size=0;
 u32 packets_all=0;
 u32 packets_now=0;
-u32 FLASH_SAVEADDR=FLASH_APP1_ADDR;
 
 u8 machine_state=0;
 ifs_stmr_handle statemachine_handle;
@@ -34,20 +33,26 @@ void Send_File(void);
 void state_timeout(void *arg);
 int Wait_Ack(u8 ack_ch);
 
+typedef void (*FunType)(void);
+FunType Fun_IAPSet= (void(*)())0x8001001;
+FunType Fun_ReadSuccessflag= (void(*)())0x8001031;
+FunType Fun_WriteSuccessflag= (void(*)())0x8001061;
+
 int main(void)
 {
 	u8 count=0;
-	u16 temp_addr[2];
+//	u16 temp_addr[2];
 	u16 crc_temp,calc_crc;
-	IAP_Set();
+	
+	(*Fun_IAPSet)();//调用IAPSet()函数 在bootloader中
 	Systick_Init();
 	LED_Init();
 	USART1_Configuration(115200);
 	ifs_stmr_init();
-	
+
 	ifs_stmr_start(ifs_stmr_registered(200,LED_Flash,NULL,IFS_STMR_FLAG_PERIOD));
 
-	printf("-APP-总空间:%ld Byte",FLASH_ROM*1024ul);
+	printf("-APP-总空间:%ld Byte ",FLASH_ROM*1024ul);
 	uart_putu16(0xffff);
 	while(1)
 	{
@@ -71,7 +76,7 @@ int main(void)
 							
 							FILE_SIZE=file_size;
 							//(FLASH_APP1_ADDR-0X08000000)//APP不能使用的空间 保留为BOOTLOADER使用
-							if(FILE_SIZE>(FLASH_ROM*1024-(FLASH_APP1_ADDR-0X08000000)))
+							if(FILE_SIZE>(FLASH_ROM*1024-((uint32_t)0x08003000-0X08000000)))
 							{
 								uart_putu16(0xffff);
 								break;
@@ -83,15 +88,10 @@ int main(void)
 
 							strncpy(file_name,(const char*)(&uart_recv.recv_buf[0]+12),100);
 							//filename_ptr=file_name;
-
-							FLASH_SAVEADDR=FLASH_APP1_ADDR;
+		
 							ifs_stmr_start(statemachine_handle);
-
-							if(STMFLASH_ReadHalfWord(APP1_SUCCESS_ADDR)!=0xa5a5)
-							{
-								temp_addr[0]=0xa5a5;
-								STMFLASH_Write(APP1_SUCCESS_ADDR,temp_addr,1);
-							}
+							//调用写成功标志的函数 再bootloader中
+							(*Fun_WriteSuccessflag)();
 							uart_putc(0x06);
 						}
 						else

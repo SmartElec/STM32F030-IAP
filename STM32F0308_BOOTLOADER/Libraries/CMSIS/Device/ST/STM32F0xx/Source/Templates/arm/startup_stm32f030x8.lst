@@ -386,18 +386,19 @@ ARM Macro Assembler    Page 6
               00000000 
 Command Line: --debug --xref --diag_suppress=9931 --cpu=Cortex-M0 --apcs=interw
 ork --depend=..\obj\startup_stm32f030x8.d -o..\obj\startup_stm32f030x8.o -I"E:\
-DOCUMENT\project\STM32F030\STM32F0 IAP\STM32F0308_BOOTLOADER\MDK-ARM\RTE\_bootl
-oader" -IC:\Keil_v5\ARM\PACK\ARM\CMSIS\5.0.0\CMSIS\Include -IC:\Keil_v5\ARM\PAC
+DOCUMENT\project\STM32F030\STM32F0 IAP 20180718\STM32F0308_BOOTLOADER\MDK-ARM\R
+TE\_bootloader" -IC:\Keil_v5\ARM\PACK\ARM\CMSIS\5.0.0\CMSIS\Include -IC:\Keil_v
 
 
 
 ARM Macro Assembler    Page 7 
 
 
-K\Keil\STM32F0xx_DFP\1.5.0\Device\Include --predefine="__UVISION_VERSION SETA 5
-22" --predefine="_RTE_ SETA 1" --predefine="STM32F030x8 SETA 1" --list=..\libra
-ries\cmsis\device\st\stm32f0xx\source\templates\arm\startup_stm32f030x8.lst ..\
-Libraries\CMSIS\Device\ST\STM32F0xx\Source\Templates\arm\startup_stm32f030x8.s
+5\ARM\PACK\Keil\STM32F0xx_DFP\1.5.0\Device\Include --predefine="__UVISION_VERSI
+ON SETA 522" --predefine="_RTE_ SETA 1" --predefine="STM32F030x8 SETA 1" --list
+=..\libraries\cmsis\device\st\stm32f0xx\source\templates\arm\startup_stm32f030x
+8.lst ..\Libraries\CMSIS\Device\ST\STM32F0xx\Source\Templates\arm\startup_stm32
+f030x8.s
 
 
 

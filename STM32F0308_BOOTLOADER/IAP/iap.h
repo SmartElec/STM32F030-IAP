@@ -11,9 +11,10 @@ typedef  void (*iapfun)(void);				//定义一个函数类型的参数.
 
 void iap_load_app(u32 appxaddr);			//执行flash里面的app程序
 void iap_load_appsram(u32 appxaddr);		//执行sram里面的app程序
-void iap_write_appbin(u32 appxaddr,u8 *appbuf,u32 applen);	//在指定地址开始,写入bin
+u16 iap_write_appbin(u32 appxaddr,u8 *appbuf,u32 applen);	//在指定地址开始,写入bin
 int iap_read_appbin(u32 appxaddr,u8 *appbuf,u32 appsize);
-void IAP_Set(void);
+void IAP_Set(void) __attribute((section(".ARM.__at_0x8001000")));
+
 #endif
 
 

@@ -438,13 +438,6 @@
         </Group>
         <Group>
           <GroupName>Application/Hardware</GroupName>
-          <Files>
-            <File>
-              <FileName>stmflash.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\HARDWARE\stmflash.c</FilePath>
-            </File>
-          </Files>
         </Group>
         <Group>
           <GroupName>IAP</GroupName>
@@ -453,11 +446,6 @@
               <FileName>crc8_16.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\IAP\crc8_16.c</FilePath>
-            </File>
-            <File>
-              <FileName>iap.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\IAP\iap.c</FilePath>
             </File>
             <File>
               <FileName>softtimer.c</FileName>
